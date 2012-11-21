@@ -1,0 +1,141 @@
+;------------------------------------------------------------------
+; CT1 Praktikum 8: Taschenrechner
+;
+; Das Programm liest zwei 8 bit Operanden von den Schiebeschaltern.
+; Die auszuführende Operation wird über den Hex-Codier-Schalter
+; eingestellt. Das Resultat wird an die LEDs ausgegeben.
+;------------------------------------------------------------------
+.MODEL small
+
+;------------  Konstantendeklarationen -------------
+led_addr          EQU   700h
+dip_switch_addr   EQU   704h
+turn_Switch_addr  EQU   706h
+hex_display_addr  EQU   708h
+
+;------------  code section  ------------------------
+.CODE
+
+start:     MOV   AX,@data       ; Anfang Datensegment
+           MOV   DS,AX          ; in DS-Register laden
+ 
+readOps:          
+           ; Einlesen der Operanden
+           MOV    DX, dip_switch_addr
+           IN     AX, [DX]               ; read operands A and B into AX
+           MOV    op1, AH           ; cache operands
+           MOV    op2, AL
+           
+readSwitch:           
+           ; Einlesen der Operation in BX und Anzeigen auf hex-Display
+           ; Nach dem Einlesen enthält BX einen Wert zwischen 0 und 15
+           MOV    DX, turn_Switch_addr
+           IN     AL, [DX]
+           SHR    AL, 4            ; shift right since buttons are also inside
+           MOV    AH, 0
+           MOV    BX, AX
+
+           MOV    SI, OFFSET seg7Table
+           MOV    AL, [BX+SI]
+           MOV    DX, hex_display_addr
+           OUT    [DX], AL
+
+           MOV    AH, op1
+           MOV    AL, op2
+switchCase:
+           ; Mehrfachauswahl basierend auf dem Inhalt von BX 
+           CMP   BX,12d          ; 12 or higher ar all ok aka default
+           JGE   default
+           CMP   BX,0d; all off because 0
+           JE   alloff
+           SHL   BX,1
+           JMP   word ptr cs:jumptable[BX]
+           
+alloff:    
+           MOV  AX, 0 ; all 0 since its inverted afterwards
+           JMP   displayLeds
+           
+addops:
+           ADD   AH, AL
+           MOV   AL, 0
+           JMP   displayLeds
+subops:
+           SUB   AH, AL
+           MOV   AL, 0
+           JMP   displayLeds
+mulops:
+           MUL   AH         ;result is in AX
+           JMP   displayLeds
+divops:
+           MOV   BL, AL ; move op2 into BL since its the operand
+           CMP   BL, 0d
+           JE   alloff
+           MOV   AL, AH ; mov AH into AL otherwise the number would be to big
+           MOV   AH, 0  ; zero AH otherwise it would affect the result
+           DIV   BL; result is in AL, rest in AH
+           JMP   displayLeds
+andops:
+           AND   AH, AL
+           MOV   AL, 0
+           JMP   displayLeds
+orops:
+           OR    AH, AL
+           MOV   AL, 0
+           JMP   displayLeds
+xorops:
+           XOR   AH, AL
+           MOV   AL, 0
+           JMP   displayLeds
+notops:
+           NOT   AH
+           MOV   AL, 0
+           JMP   displayLeds
+nandops:
+           AND   AH, AL
+           MOV   AL, 0
+           NOT   AH
+           JMP   displayLeds
+norops:
+           OR    AH, AL
+           MOV   AL, 0
+           NOT   AH
+           JMP   displayLeds
+xnorops:
+           XOR   AH, AL
+           MOV   AL, 0
+           NOT   AH
+           JMP   displayLeds
+
+default:   
+           MOV  AX, 65535d ; all 1 since its inverted afterwards
+           
+displayLeds: 
+           ; OUTPUT RESULT IN the LEDS
+           NOT    AX
+           MOV    DX, led_addr
+           OUT    [DX], AX
+
+           JMP   readOps 
+           
+jumptable  DW  alloff
+           DW  addops
+           DW  subops
+           DW  mulops
+           DW  divops
+           DW  andops
+           DW  orops
+           DW  xorops
+           DW  notops
+           DW  nandops
+           DW  norops
+           DW  xnorops
+           
+;------------  data section  ------------------------
+.DATA
+    op1             DB      0
+    op2             DB      0
+    seg7Table       DB      0C0h, 0F9h, 0A4h, 0B0h, 099h, 092h, 082h, 0F8h, 080h, 090h, 088h, 083h, 0C6h, 0A1h, 086h, 08Eh
+
+.STACK 100h
+;------------- end of program ------------------------
+           END   start

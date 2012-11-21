@@ -1,0 +1,108 @@
+;******************************************************************************
+                NAME    SUMDIFF
+;******************************************************************************
+;  Funktion:    Liest op1 von den Schiebeschaltern an Adresse 705h sowie op2 von
+;               den Schiebeschaltern an Adresse 704h und bildet die Summe
+;               (op1 + op2) und die Differenz (op1 - op2).
+;               Die Summe wird auf die 8 LEDs an Adresse 701h (links) ausge-
+;               geben. Die Differenz wird an die 8 LEDS an Adresse 700h (rechts)
+;               ausgegeben.
+;******************************************************************************
+.MODEL small
+.186
+
+;-----------    Symbol Definitionen  (= Konstanten)    --------------------
+LED_LOADDR              EQU     0700h
+LED_HIADDR              EQU     0701h
+SEG7_ADDR               EQU     0702h
+DIP_SWITCH_LOADDR       EQU     0704h
+DIP_SWITCH_HIADDR       EQU     0705h
+KEYS_ADDR               EQU     0706h
+DATA_DISPLAY_ADDR       EQU     0708h
+
+;------------  code section  ----------------------------------------------
+.CODE
+
+start:          MOV   AX,@data       ; Anfang des Datensegments
+                MOV   DS,AX          ; laden
+
+endless:
+                ;---- Add your code below ----
+
+                MOV    DX, DIP_SWITCH_LOADDR
+                IN     AX, [DX]                ; read operands A and B into AX
+
+                ; ---- Aditition ----
+                ADD    AL, AH                ; addiere BH + BL
+
+                MOV    carryflagbm, 00100000b       ; set bitmask for carry flag
+                MOV    overflowflagbm, 00010000b    ; set bitmask for overflow flag
+                CALL   outputFlags
+
+                NOT    AL                    ; invert first operand of addition
+                MOV    DX, LED_HIADDR        ; get high address
+                OUT    [DX], AL              ; output first operand
+                
+                ; ---- read again
+                MOV    DX, DIP_SWITCH_LOADDR
+                IN     AX, [DX]              ; read operands A and B into AX
+
+                ; ---- Subtraction ----
+                SUB    AH, AL                ; subtrahiere AH - AL
+
+                MOV    carryflagbm, 00000010b       ; set bitmask for carry flag
+                MOV    overflowflagbm, 00000100b    ; set bitmask for overflow flag
+                CALL   outputFlags
+
+                MOV    AL, AH
+                MOV    AH, 0h
+                NOT    AL                    ; invert first operand
+                MOV    DX, LED_LOADDR
+                OUT    [DX], AL              ; output first operand
+
+                ;---- Add your code above ----
+                JMP    endless
+
+                ;---- Output Flags subrutine ----
+outputFlags:
+                MOV    result, AX           ; save result because we need the AX Register
+                MOV    BX, 0h               ; make sure nothing is in BX
+
+                JNC    noCF                 ; if CF == 1
+                PUSHF                       ; push flags on stack
+                OR     AL, carryflagbm      ; write bitmaks for CF
+                POPF                        ; pop flag stack
+noCF:
+
+                JNO    noOF                 ; if OF == 1
+                PUSHF                       ; push flags on stack
+                OR     AL, overflowflagbm   ; write bitmaks for OF
+                POPF                        ; pop flag stack
+noOF:
+
+       		    ; ---- output CF and OF vars
+                MOV    DX, SEG7_ADDR
+                NOT    AL
+                OR    AL, 11001001b
+                OUT    [DX], AL
+
+                MOV    AX, result           ; write back the result
+                RET
+                ;---- end of Output Flags subrutine ----
+                              
+
+
+;------------  data section  --------------------------------------------
+.DATA
+carryflagbm     DB 0h
+overflowflagbm  DB 0h
+result          DW 0h
+
+;------------  stack section  --------------------------------------------
+.STACK 100h
+
+;-------------------------------------------------------------------------
+                END     start
+
+
+

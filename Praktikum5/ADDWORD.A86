@@ -1,0 +1,98 @@
+;----------------------------------------------------
+; CT Praktikum 5: Arithmetische Befehle
+; 32-Bit Addition
+;----------------------------------------------------
+.MODEL small
+.186
+
+;------------  Initial Declarations  ----------------
+LED_LOADDR              EQU     0700h
+LED_HIADDR              EQU     0701h
+SEG7_ADDR               EQU     0702h
+DIP_SWITCH_LOADDR       EQU     0704h
+DIP_SWITCH_HIADDR       EQU     0705h
+KEYS_ADDR               EQU     0706h
+DATA_DISPLAY_ADDR       EQU     0708h
+
+KEY_B0                  EQU     1
+FACTOR                  EQU     10h
+
+;------------  code section  ------------------------
+.CODE
+
+start:          MOV     AX, @data       ; Load the start of the Data segment
+                MOV     DS, AX
+                NOP
+
+                ;---- Add your initialization code below ----
+
+                MOV    BX, 0h
+                MOV    CX, 0h
+
+                ;---- Add your initialization code above ----
+
+endless:    
+                CALL    waitForKey
+                
+                ;---- Add your code below ----
+
+                MOV    DX, DIP_SWITCH_LOADDR     ; read entire word of dip switch
+                IN     AX, [DX]
+
+                ;---- add
+                ADD    BX, AX                    ; add least significant
+                ADC    CX, 0h                    ; add most significant and take carry into account
+
+                ;---- output least significant
+                MOV    AX, BX                    ; move first 16 bit result into AX for output
+                NOT    AX                        ; make AX negative for LED output
+                MOV    DX, LED_LOADDR            ; retrieve address for LOADDR LED
+                OUT    [DX], AX                  ; send output
+
+                ;---- output most significant
+                MOV    AX, CX
+                MOV    DX, DATA_DISPLAY_ADDR
+                OUT    [DX], AX
+
+
+                ;---- Add your code above -----
+
+                JMP     endless
+
+;----------------------------------------------------
+; Subroutines
+;----------------------------------------------------
+waitForKey:
+        ; Wait until key B0 is pressed (asserted)
+        ; and released again
+                PUSH    DX
+                PUSH    AX
+                MOV     DX,KEYS_ADDR
+
+waitForAssert:
+                IN      AL,[DX]
+                TEST    AL,KEY_B0
+                JNZ     waitForAssert
+
+waitForRelease:
+                IN      AL,[DX]
+                TEST    AL,KEY_B0
+                JZ      waitForRelease
+                
+                POP     AX
+                POP     DX
+                RET
+;----------------------------------------------------
+
+;------------  data section  ------------------------
+.DATA
+byteTable       DB      16  DUP (?)
+seg7code        DB      0C0h,0F9h,0A4h,0B0h,099h,092h,082h,0F8h
+                DB      080h,090h,088h,083h,0C6h,0A1h,086h,08Eh
+
+;------------  stack section  ------------------------
+.STACK 100h
+
+;------------- end of program ------------------------
+                END     start       ; start address for loader
+

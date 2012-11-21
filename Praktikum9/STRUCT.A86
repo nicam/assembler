@@ -1,0 +1,119 @@
+;------------------------------------------------------------------
+; CT1 Praktikum 9: Strukturierter Assemblercode
+;------------------------------------------------------------------
+.MODEL small
+
+;------------  Konstantendeklarationen -------------
+led_lo_addr           EQU   700h
+led_hi_addr           EQU   701h 
+switch_lo_addr        EQU   704h
+switch_hi_addr        EQU   705h
+turn_Switch_addr      EQU   706h
+hex_display_addr      EQU   708h
+seg7_addr             EQU   702h
+
+;------------  code section  ------------------------
+.CODE
+
+start:      MOV   AX,@data       ; Anfang Datensegment
+            MOV   DS,AX          ; in DS-Register laden
+init:
+        MOV    DX, turn_Switch_addr;
+        IN     AL, [DX]        ; read in value for button
+        AND    AL, 00000001b   ; bitmask to kill all settings except T0
+        CMP    AL, 1
+        JE     ein
+        JMP    aus
+
+ein:
+        MOV AL, 086h         ; HEX 7 Seg value for E
+        MOV DX, seg7_addr
+        OUT [DX], AL
+
+
+        MOV    DX, switch_lo_addr
+        IN     AL, [DX]
+        MOV    op1, AL       ; store 704h input into op1
+        OR     AL, 0         ; set Zero Flag of AX
+        MOV    BL, 0         ; initialize counter
+
+        ; ---- counter start
+        myWhile:
+            JZ     myWhileEnd    ; while not ZF of AX
+            SHR    AL, 1         ;   shift right AL
+            JNC    myWhile       ;   if CF == 1
+            ADD    BL, 1         ;     ADD BX, CF(1)
+            OR     AL, 0         ; set Zero Flag of AX
+            JMP    myWhile
+        myWhileEnd:                
+        ; ----- counter end
+
+        CMP   BL, 3            ; check if valid 3 of 8
+        JE    valid3of8
+        JMP   invalid3of8
+
+        valid3of8:
+            MOV AL, op1               ; move the original code into AL
+            JMP outputEin
+
+        invalid3of8:        
+            MOV AL, BL                ; move the count into AL
+            JMP outputEin
+
+        outputEin:
+            NOT AL;         ; leds are low active
+            MOV DX, led_lo_addr
+            OUT [DX], AL
+
+            ; ---- disable HI LED
+            MOV AL, 11111111b        ; set all leds to 1 (low active)
+            MOV DX, led_hi_addr
+            OUT [DX], AL
+    JMP init
+
+aus:
+        MOV AL, 088h         ; HEX 7 Seg value for A
+        MOV DX, seg7_addr
+        OUT [DX], AL
+
+        MOV    DX, switch_hi_addr
+        IN     AL, [DX]
+        AND    AL, 00001111b   ; bitmask to kill left alf of the switches
+        MOV    op2, AL       ; store 701h input into op1
+
+        CMP   AL, 10
+        JB    validBCD
+        JMP   invalidBCD
+
+
+        validBCD:
+            ADD AL, 30h
+            JMP outputAus
+
+        invalidBCD:
+            MOV AL, 0
+            JMP outputAus
+
+        outputAus:
+            NOT AL;         ; leds are low active
+            MOV DX, led_hi_addr
+            OUT [DX], AL
+
+            ; ---- disable LO LED
+            MOV AL, 11111111b        ; set all leds to 1 (low active)
+            MOV DX, led_lo_addr
+            OUT [DX], AL
+    JMP init
+
+
+
+           
+;------------  data section  ------------------------
+.DATA
+    op1             DB      0
+    op2             DB      0
+    seg7Table       DB      0C0h, 0F9h, 0A4h, 0B0h, 099h, 092h, 082h, 0F8h, 080h, 090h, 088h, 083h, 0C6h, 0A1h, 086h, 08Eh
+
+.STACK 100h
+;------------- end of program ------------------------
+           END   start

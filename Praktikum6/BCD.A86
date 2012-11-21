@@ -1,0 +1,98 @@
+;******************************************************************************
+;       CT1 Praktikum 6 - program frame
+;******************************************************************************
+.MODEL small
+.186
+
+LED_LOADDR              EQU     0700h
+LED_HIADDR              EQU     0701h
+SEG7_ADDR               EQU     0702h
+DIP_SWITCH_LOADDR       EQU     0704h
+DIP_SWITCH_HIADDR       EQU     0705h
+KEYS_ADDR               EQU     0706h
+DATA_DISPLAY_ADDR       EQU     0708h
+DATA_DISPLAY_HI         EQU     0709h
+LOW_NIBBLE_MASK         EQU     0Fh
+
+;------------  code section  ----------------------------------------------
+.CODE
+
+start:          MOV   AX,@data       ; load data segment register
+                MOV   DS,AX
+
+Endless: 
+        ;--- add your code below ---
+
+
+            ;--- BCD ZEHNER to BCD 
+                MOV   DX, DIP_SWITCH_HIADDR
+                IN    AL, [DX] ;read byte 705
+                AND   AL, LOW_NIBBLE_MASK ; apply mask here
+                SHL   AL, 4; shift ZEHNER left by 4
+                MOV   bcdCode, AL
+
+            ;--- BCD EINER to BCD
+                MOV   DX, DIP_SWITCH_LOADDR
+                IN    AL, [DX]; ready byte 704
+                AND   AL, LOW_NIBBLE_MASK ; apply mask here
+                MOV   BL, bcdCode
+                ADD   AL, BL
+                MOV   bcdCode, AL
+
+            ;--- DISPLAY BCD Code
+                MOV   AL, bcdCode
+                MOV   DX, DATA_DISPLAY_ADDR
+                OUT   [DX], AL ; display it to DATAPORT 708
+                NOT   AL; invert for LED OUTPUT
+                MOV   DX, LED_LOADDR
+                OUT   [DX], AL ; display it to LED LO ADDR 700h
+
+
+            ;---- BCD ZEHNER to BINARY
+                MOV   DX, DIP_SWITCH_HIADDR
+                IN    AL, [DX] ;read byte 705
+                AND   AL, LOW_NIBBLE_MASK ; apply mask here
+                ;------------- MUL VARIANT
+                MOV   BL, 10 ;write multiplicant into bl
+                MUL   BL     ;multiply by 10 ; RESULT IS IN AX
+                ;------------- MUL VARIANT
+                    ;------------- SHIFT VARIANT
+                    ;MOV   BL, AL ; move AL to BL
+                    ;SHL   AL, 3
+                    ;SHL   BL, 1
+                    ;ADD   AL, BL
+                    ;------------- SHIFT VARIANT
+                MOV binaryCode, AL ; BCD zehner in binaryCode
+
+            ;---- BCD einer to binary
+                MOV   DX, DIP_SWITCH_LOADDR
+                IN    AL, [DX]; ready byte 704
+                AND   AL, LOW_NIBBLE_MASK ; apply mask here
+                MOV   BL, binaryCode
+                ADD   AL, BL
+                MOV   binaryCode, AL ; binaryCode should now contain the result
+
+            ;--- DISPLAY binaryCode
+                MOV   AL, binaryCode
+                MOV   DX, DATA_DISPLAY_HI
+                OUT   [DX], AL
+                NOT   AL; invert for LED OUTPUT
+                MOV   DX, LED_HIADDR
+                OUT   [DX], AL
+
+
+                JMP     Endless
+
+;------------  data section  --------------------------------------------
+.DATA
+bcdCode        DB (?)
+binaryCode     DB (?)
+
+
+;------------  stack section  --------------------------------------------
+.STACK 100h
+
+;-------------------------------------------------------------------------
+                END     start
+
+
